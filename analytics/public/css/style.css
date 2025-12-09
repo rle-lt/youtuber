@@ -1,0 +1,123 @@
+@import "normalize.css";
+
+:root {
+  --background-base: #282828;
+  --background-base-dark: #1f1f1f;
+  --foreground: #fffff2;
+  --foreground-muted: #8daa9e;
+  --border-base: #3e3e3e;
+  --border-base-light: #575757;
+  --button-base: #3e3e3e;
+  --button-hover: #535353;
+  --button-focus: #656565;
+  --primary: #41b4d9;
+}
+
+:root[data-theme="light"] {
+  --background-base: #ffffff;
+  --background-base-dark: #f5f5f5;
+  --foreground: #1a1a1a;
+  --foreground-muted: #5a6c62;
+  --border-base: #e0e0e0;
+  --border-base-light: #d0d0d0;
+  --button-base: #f0f0f0;
+  --button-hover: #e5e5e5;
+  --button-focus: #d8d8d8;
+  --primary: #2196f3;
+}
+
+*,
+*::after,
+*::before {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  overscroll-behavior: none;
+}
+
+body {
+  font-family: "Roboto",
+    sans-serif;
+  font-optical-sizing: auto;
+  font-weight: 450;
+  font-style: normal;
+  font-size: 14px;
+}
+
+a:focus-visible,
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline-offset: -1px;
+  outline: 2px solid var(--foreground);
+}
+
+a:active,
+button:active,
+input:active,
+select:active,
+textarea:active {
+  outline: none;
+}
+
+
+
+span,
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  margin: 0;
+  font-weight: 500;
+  color: var(--foreground);
+}
+
+p {
+  margin: 0;
+  color: var(--foreground-muted);
+}
+
+button {
+  padding: 0px 16px;
+
+  height: 34px;
+
+  display: grid;
+  place-items: center;
+
+  background-color: var(--button-base);
+  color: var(--foreground);
+  font-weight: 500;
+
+  border-radius: 999px;
+  border-width: 0px;
+
+  user-select: none;
+  cursor: pointer;
+}
+
+button.-ghost {
+  background-color: transparent;
+  border: 1px solid var(--border-base-light);
+}
+
+button.-borderless {
+  border-width: 0px;
+}
+
+button:hover {
+  background-color: var(--button-hover);
+}
+
+button:active {
+  background-color: var(--button-focus);
+}
+
+a {
+  border-radius: 3px;
+}

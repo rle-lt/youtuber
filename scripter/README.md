@@ -37,7 +37,6 @@ import (
     "os"
     "strings"
     
-    "scripter/internal/constants"
     "scripter/pkg/scripter"
 )
 
@@ -110,4 +109,3 @@ func main() {
 
 ```bash
 go build -o scripter ./cmd/scripter
-``

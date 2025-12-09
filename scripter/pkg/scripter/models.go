@@ -11,6 +11,8 @@ type RequestMessage struct {
 	Content string `json:"content"`
 }
 
+type RequestMessages []RequestMessage
+
 type ModelInfo struct {
 	Provider    string
 	Model       string
@@ -61,7 +63,7 @@ func GetModelAndProvider(model string) (ModelInfo, error) {
 	}, nil
 }
 
-func GetLastMessage(messages []RequestMessage) string {
+func (messages RequestMessages) GetLastMessage() string {
 	if len(messages) == 0 {
 		return ""
 	}

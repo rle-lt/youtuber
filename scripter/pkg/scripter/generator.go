@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"strings"
 
 	prompts "github.com/rle-lt/youtuber/scripter/pkg/prompt"
 )
@@ -14,6 +15,7 @@ type Models struct {
 	ChapterWriter  string
 	Revision       string
 	Scrub          string
+	Prompt         string
 }
 
 type Config struct {
@@ -40,6 +42,7 @@ func NewGenerator(config Config) (*Generator, error) {
 		config.Models.ChapterWriter,
 		config.Models.Revision,
 		config.Models.Scrub,
+		config.Models.Prompt,
 	}
 
 	for _, modelStr := range models {
@@ -57,6 +60,48 @@ func NewGenerator(config Config) (*Generator, error) {
 	}
 
 	return g, nil
+}
+func (g *Generator) GeneratePrompts(idea string, usedPrompts []string, targetAudienceCharacteristics []string, resultExamples []string, promptCount uint) (string, error) {
+	examplesStr := strings.Join(resultExamples, "\n\n")
+	usedPromptsStr := ""
+	audienceStr := ""
+	for _, char := range targetAudienceCharacteristics {
+		audienceStr += fmt.Sprintf("- %s\n", char)
+	}
+	for _, used := range usedPrompts {
+		usedPromptsStr += fmt.Sprintf("- %s\n", used)
+
+	}
+
+	prompt := fmt.Sprintf(prompts.PROMPT_GENERATION_PROMPT,
+		promptCount,
+		idea,
+		examplesStr,
+		usedPromptsStr,
+		audienceStr)
+
+	modelInfo, err := GetModelAndProvider(g.config.Models.Prompt)
+
+	if err != nil {
+		return "", err
+	}
+
+	messages := RequestMessages{
+		{
+			Role:    "system",
+			Content: prompts.PROMPT_GENERATION_INTRO,
+		},
+		BuildMessage(prompt)}
+
+	messages, err = g.generateText(messages, modelInfo.Model)
+	if err != nil {
+		return "", err
+	}
+
+	generatedPrompts := messages.GetLastMessage()
+
+	return generatedPrompts, nil
+
 }
 
 func (g *Generator) GenerateStory(prompt string) ([]string, error) {
@@ -127,28 +172,28 @@ func (g *Generator) GenerateInitOutline(outlinePrompt string) (string, string, s
 	}
 
 	prompt := fmt.Sprintf(prompts.GET_IMPORTANT_BASE_PROMPT_INFO, outlinePrompt)
-	messages := []RequestMessage{BuildMessage(prompt)}
+	messages := RequestMessages{BuildMessage(prompt)}
 	messages, err = g.generateText(messages, modelInfo.Model)
 	if err != nil {
 		return "", "", "", "", err
 	}
-	importantInfo := GetLastMessage(messages)
+	importantInfo := messages.GetLastMessage()
 
 	prompt = fmt.Sprintf(prompts.STORY_ELEMENTS_PROMPT, outlinePrompt)
-	messages = []RequestMessage{BuildMessage(prompt)}
+	messages = RequestMessages{BuildMessage(prompt)}
 	messages, err = g.generateText(messages, modelInfo.Model)
 	if err != nil {
 		return "", "", "", "", err
 	}
-	storyElements := GetLastMessage(messages)
+	storyElements := messages.GetLastMessage()
 
 	prompt = fmt.Sprintf(prompts.INITIAL_OUTLINE_PROMPT, outlinePrompt, storyElements, g.config.MaxChapterCount)
-	messages = []RequestMessage{BuildMessage(prompt)}
+	messages = RequestMessages{BuildMessage(prompt)}
 	messages, err = g.generateText(messages, modelInfo.Model)
 	if err != nil {
 		return "", "", "", "", err
 	}
-	initialOutline := GetLastMessage(messages)
+	initialOutline := messages.GetLastMessage()
 
 	fullOutline := initialOutline + storyElements + importantInfo
 	return fullOutline, storyElements, initialOutline, importantInfo, nil
@@ -161,13 +206,13 @@ func (g *Generator) CountChapters(chapterOutline string) (uint, error) {
 		return 0, err
 	}
 
-	messages := []RequestMessage{BuildMessage(prompt)}
+	messages := RequestMessages{BuildMessage(prompt)}
 	messages, err = g.generateText(messages, modelInfo.Model)
 	if err != nil {
 		return 0, err
 	}
 
-	output := GetLastMessage(messages)
+	output := messages.GetLastMessage()
 	var data struct {
 		TotalChapters int `json:"totalChapters"`
 	}
@@ -187,7 +232,7 @@ func (g *Generator) GenerateChapterOutlines(outline string, outlineCount uint) (
 	}
 
 	prompt := fmt.Sprintf("Please help me expand upon the following outline, chapter by chapter.\n%s", outline)
-	messages := []RequestMessage{BuildMessage(prompt)}
+	messages := RequestMessages{BuildMessage(prompt)}
 	chapterOutlines := make([]string, 0, outlineCount)
 
 	for i := range outlineCount {
@@ -200,7 +245,7 @@ func (g *Generator) GenerateChapterOutlines(outline string, outlineCount uint) (
 			return nil, fmt.Errorf("failed to generate chapter %d outline: %w", chapterNum, err)
 		}
 
-		chapterOutlines = append(chapterOutlines, GetLastMessage(messages))
+		chapterOutlines = append(chapterOutlines, messages.GetLastMessage())
 	}
 
 	return chapterOutlines, nil
@@ -227,7 +272,7 @@ func (g *Generator) GenerateChapters(chapterOutlines []string, chapterCount uint
 		lastChapterSummary := ""
 		if i > 0 {
 			prompt := fmt.Sprintf(prompts.CHAPTER_SUMMARY_PROMPT, chapterNum, storyOutline, chapters[i-1])
-			messages := []RequestMessage{
+			messages := RequestMessages{
 				{Role: "system", Content: prompts.CHAPTER_SUMMARY_INTRO},
 				BuildMessage(prompt),
 			}
@@ -236,7 +281,7 @@ func (g *Generator) GenerateChapters(chapterOutlines []string, chapterCount uint
 			if err != nil {
 				return nil, fmt.Errorf("failed to generate chapter %d summary: %w", chapterNum, err)
 			}
-			lastChapterSummary = GetLastMessage(messages)
+			lastChapterSummary = messages.GetLastMessage()
 		}
 
 		previousChaptersContext := ""
@@ -249,7 +294,7 @@ func (g *Generator) GenerateChapters(chapterOutlines []string, chapterCount uint
 			previousChaptersContext, importantInfo, chapterNum, chapterCount,
 			currentChapterOutline, lastChapterSummary, chapterNum)
 
-		messages := []RequestMessage{
+		messages := RequestMessages{
 			{Role: "system", Content: fmt.Sprintf(prompts.CHAPTER_GENERATION_INTRO, storyOutline)},
 			BuildMessage(prompt),
 		}
@@ -258,14 +303,14 @@ func (g *Generator) GenerateChapters(chapterOutlines []string, chapterCount uint
 		if err != nil {
 			return nil, fmt.Errorf("failed to generate chapter %d stage 1: %w", chapterNum, err)
 		}
-		firstChapterStage := GetLastMessage(messages)
+		firstChapterStage := messages.GetLastMessage()
 
 		// Stage 2: Add Character Development
 		prompt = fmt.Sprintf(prompts.CHAPTER_GENERATION_STAGE2,
 			previousChaptersContext, importantInfo, chapterNum, chapterCount,
 			currentChapterOutline, lastChapterSummary, firstChapterStage, chapterNum)
 
-		messages = []RequestMessage{
+		messages = RequestMessages{
 			{Role: "system", Content: fmt.Sprintf(prompts.CHAPTER_GENERATION_INTRO, storyOutline)},
 			BuildMessage(prompt),
 		}
@@ -274,14 +319,14 @@ func (g *Generator) GenerateChapters(chapterOutlines []string, chapterCount uint
 		if err != nil {
 			return nil, fmt.Errorf("failed to generate chapter %d stage 2: %w", chapterNum, err)
 		}
-		secondChapterStage := GetLastMessage(messages)
+		secondChapterStage := messages.GetLastMessage()
 
 		// Stage 3: Add Dialogue
 		prompt = fmt.Sprintf(prompts.CHAPTER_GENERATION_STAGE3,
 			previousChaptersContext, importantInfo, chapterNum, chapterCount,
 			lastChapterSummary, secondChapterStage, chapterNum)
 
-		messages = []RequestMessage{
+		messages = RequestMessages{
 			{Role: "system", Content: fmt.Sprintf(prompts.CHAPTER_GENERATION_INTRO, storyOutline)},
 			BuildMessage(prompt),
 		}
@@ -290,7 +335,7 @@ func (g *Generator) GenerateChapters(chapterOutlines []string, chapterCount uint
 		if err != nil {
 			return nil, fmt.Errorf("failed to generate chapter %d stage 3: %w", chapterNum, err)
 		}
-		thirdChapterStage := GetLastMessage(messages)
+		thirdChapterStage := messages.GetLastMessage()
 
 		chapters = append(chapters, thirdChapterStage)
 	}
@@ -305,7 +350,7 @@ func (g *Generator) ReviewOutline(storyOutline string) (string, error) {
 	}
 
 	prompt := fmt.Sprintf(prompts.CRITIC_OUTLINE_PROMPT, storyOutline)
-	messages := []RequestMessage{
+	messages := RequestMessages{
 		{Role: "system", Content: prompts.CRITIC_OUTLINE_INTRO},
 		BuildMessage(prompt),
 	}
@@ -314,17 +359,17 @@ func (g *Generator) ReviewOutline(storyOutline string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	feedback := GetLastMessage(messages)
+	feedback := messages.GetLastMessage()
 
 	prompt = fmt.Sprintf(prompts.OUTLINE_REVISION_PROMPT, storyOutline, feedback)
-	messages = []RequestMessage{BuildMessage(prompt)}
+	messages = RequestMessages{BuildMessage(prompt)}
 
 	messages, err = g.generateText(messages, modelInfo.Model)
 	if err != nil {
 		return "", err
 	}
 
-	return GetLastMessage(messages), nil
+	return messages.GetLastMessage(), nil
 }
 
 func (g *Generator) ReviewChapters(chapters []string) ([]string, error) {
@@ -336,7 +381,7 @@ func (g *Generator) ReviewChapters(chapters []string) ([]string, error) {
 	reviewedChapters := make([]string, 0, len(chapters))
 	for i, chapter := range chapters {
 		prompt := fmt.Sprintf(prompts.CRITIC_CHAPTER_PROMPT, chapter)
-		messages := []RequestMessage{
+		messages := RequestMessages{
 			{Role: "system", Content: prompts.CRITIC_CHAPTER_INTRO},
 			BuildMessage(prompt),
 		}
@@ -345,17 +390,17 @@ func (g *Generator) ReviewChapters(chapters []string) ([]string, error) {
 		if err != nil {
 			return nil, fmt.Errorf("failed to get feedback for chapter %d: %w", i+1, err)
 		}
-		feedback := GetLastMessage(messages)
+		feedback := messages.GetLastMessage()
 
 		prompt = fmt.Sprintf(prompts.CHAPTER_REVISION_PROMPT, chapter, feedback)
-		messages = []RequestMessage{BuildMessage(prompt)}
+		messages = RequestMessages{BuildMessage(prompt)}
 
 		messages, err = g.generateText(messages, modelInfo.Model)
 		if err != nil {
 			return nil, fmt.Errorf("failed to revise chapter %d: %w", i+1, err)
 		}
 
-		reviewedChapters = append(reviewedChapters, GetLastMessage(messages))
+		reviewedChapters = append(reviewedChapters, messages.GetLastMessage())
 	}
 
 	return reviewedChapters, nil
@@ -370,20 +415,20 @@ func (g *Generator) ScrubChapters(chapters []string) ([]string, error) {
 	scrubbedChapters := make([]string, 0, len(chapters))
 	for i, chapter := range chapters {
 		prompt := fmt.Sprintf(prompts.SCRUB_PROMPT, chapter)
-		messages := []RequestMessage{BuildMessage(prompt)}
+		messages := RequestMessages{BuildMessage(prompt)}
 
 		messages, err = g.generateText(messages, modelInfo.Model)
 		if err != nil {
 			return nil, fmt.Errorf("failed to scrub chapter %d: %w", i+1, err)
 		}
 
-		scrubbedChapters = append(scrubbedChapters, GetLastMessage(messages))
+		scrubbedChapters = append(scrubbedChapters, messages.GetLastMessage())
 	}
 
 	return scrubbedChapters, nil
 }
 
-func (g *Generator) generateText(messages []RequestMessage, model string) ([]RequestMessage, error) {
+func (g *Generator) generateText(messages RequestMessages, model string) (RequestMessages, error) {
 
 	client, ok := g.clients[model]
 	if !ok {

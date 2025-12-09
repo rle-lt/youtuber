@@ -30,7 +30,7 @@ func DefaultConfig(authToken string) *ClientConfig {
 	}
 }
 
-func (c *Client) GenerateText(messages []RequestMessage, model string) ([]RequestMessage, error) {
+func (c *Client) GenerateText(messages RequestMessages, model string) (RequestMessages, error) {
 	body, err := json.Marshal(OpenRouterRequest{
 		Model:    model,
 		Messages: messages,

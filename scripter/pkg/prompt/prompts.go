@@ -439,3 +439,19 @@ Given the above chapter, clean it up for publication by:
 
 Output only the clean text with no commentary, as this will be the final print version.
 `
+const PROMPT_GENERATION_INTRO = `You are an expert prompt engineer specializing in creative storytelling. Your task is to generate prompts that will be used by an LLM to create engaging stories.`
+
+const PROMPT_GENERATION_PROMPT = `Generate %d prompts for an LLM to generate a story based on this idea: %s
+
+Your task is to create prompts that will be used to generate stories.
+
+Format each prompt as a numbered list (1., 2., 3., etc.).
+
+Example prompts to follow:
+%s
+
+Do NOT reuse these previously used ideas:
+%s
+
+Remember the target audience characteristics for these stories are:
+%s`

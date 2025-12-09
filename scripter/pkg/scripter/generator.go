@@ -20,7 +20,6 @@ type Config struct {
 	APIKey          string
 	Models          Models
 	MaxChapterCount uint
-	OutputWriter    io.Writer
 	StatusWriter    io.Writer
 }
 

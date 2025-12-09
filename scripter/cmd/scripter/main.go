@@ -49,7 +49,6 @@ func main() {
 			Scrub:          defaults.SCRUB_MODEL,
 		},
 		MaxChapterCount: defaults.MAX_CHAPTER_COUNT,
-		OutputWriter:    os.Stdout,
 		StatusWriter:    os.Stderr,
 	}
 

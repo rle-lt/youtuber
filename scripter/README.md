@@ -1,6 +1,6 @@
 # Large context story generation
 
-A Go library and CLI tool for generating fictional stories using AI models.
+Go module for large story generation
 
 ## Installation
 
@@ -21,10 +21,8 @@ go get scripter/pkg/scripter
 ### Command Line
 
 ```bash
-# Set your API key
 export OPENROUTER_API_KEY="your-api-key"
 
-# Generate a story
 scripter -prompt /path/to/prompt.txt > story.txt
 ```
 
@@ -44,7 +42,6 @@ import (
 )
 
 func main() {
-    // Configure the generator
     config := scripter.Config{
         APIKey: os.Getenv("OPENROUTER_API_KEY"),
         Models: scripter.Models{
@@ -59,25 +56,22 @@ func main() {
         StatusWriter:    os.Stderr,
     }
 
-    // Create generator
     generator, err := scripter.NewGenerator(config)
     if err != nil {
         log.Fatal(err)
     }
 
-    // Generate story
     prompt := "Write a science fiction story about a lone astronaut..."
     chapters, err := generator.GenerateStory(prompt)
     if err != nil {
         log.Fatal(err)
     }
 
-    // Output the story
     fmt.Println(strings.Join(chapters, "\n\n"))
 }
 ```
 
-### Using Individual Components
+### Generating individual story components
 
 ```go
 package main
@@ -92,7 +86,7 @@ func main() {
         APIKey: "your-api-key",
         Models: scripter.Models{
             InitialOutline: "openrouter://amazon/nova-2-lite-v1:free",
-            // ... other models
+            // ... 
         },
         MaxChapterCount: 6,
     }
@@ -108,26 +102,12 @@ func main() {
         log.Fatal(err)
     }
 
-    // Or count chapters
-    count, err := gen.CountChapters(outline)
-    if err != nil {
-        log.Fatal(err)
-    }
-    
-    // etc...
+    ...
 }
 ```
-
-### Environment Variables
-
-- `OPENROUTER_API_KEY`: Your OpenRouter API key (required)
 
 ## Building
 
 ```bash
-# Build the CLI
 go build -o scripter ./cmd/scripter
-
-# Run tests (if you add them)
-go test ./...
-```
+``

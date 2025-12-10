@@ -499,7 +499,6 @@ Each prompt should create a story with:
 - Satisfying resolution possible
 
 **6. Sustainable Runtime**
-- Story complexity matches %d-minute length
 - Enough narrative depth to fill time without padding
 - Natural story beats maintain engagement throughout
 

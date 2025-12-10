@@ -29,6 +29,12 @@ type Generator struct {
 	config  Config
 	clients map[string]*Client
 }
+type PromptGenerationTemplate struct {
+	Idea                          string
+	TargetAudienceCharacteristics []string
+	ExamplePrompts                []string
+	TitleStructureVariations      []string
+}
 
 func NewGenerator(config Config) (*Generator, error) {
 	g := &Generator{
@@ -62,20 +68,25 @@ func NewGenerator(config Config) (*Generator, error) {
 	return g, nil
 }
 
-func (g *Generator) GeneratePrompts(idea string, usedPrompts []string, targetAudienceCharacteristics []string, resultExamples []string, promptCount uint) ([]string, error) {
+func (g *Generator) GeneratePrompts(idea string, titleStructure []string, usedPrompts []string, targetAudienceCharacteristics []string, resultExamples []string, promptCount uint) ([]string, error) {
 	examplesStr := strings.Join(resultExamples, "\n")
 	usedPromptsStr := ""
 	audienceStr := ""
+	titleStructureStr := ""
 	for _, char := range targetAudienceCharacteristics {
 		audienceStr += fmt.Sprintf("- %s\n", char)
 	}
 	for _, used := range usedPrompts {
 		usedPromptsStr += fmt.Sprintf("- %s\n", used)
 	}
+	for _, title := range titleStructure {
+		usedPromptsStr += fmt.Sprintf("- %s\n", title)
+	}
 
 	prompt := fmt.Sprintf(prompts.PROMPT_GENERATION_PROMPT,
 		promptCount,
 		idea,
+		titleStructureStr,
 		examplesStr,
 		usedPromptsStr,
 		audienceStr)

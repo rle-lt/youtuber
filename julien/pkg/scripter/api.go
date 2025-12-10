@@ -1,4 +1,4 @@
-package scripter
+package generation
 
 type OpenRouterRequest struct {
 	Model    string           `json:"model"`

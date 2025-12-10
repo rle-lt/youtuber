@@ -1,4 +1,4 @@
-package scripter
+package generation
 
 import (
 	"bytes"

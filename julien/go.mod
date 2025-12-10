@@ -1,4 +1,4 @@
-module github.com/rle-lt/youtuber/scripter
+module github.com/rle-lt/youtuber/julien
 
 go 1.25.4
 

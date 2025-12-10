@@ -17,8 +17,8 @@ func TestStoryGeneration(t *testing.T) {
 			Revision:       "openrouter://amazon/nova-2-lite-v1:free",
 			Scrub:          "openrouter://amazon/nova-2-lite-v1:free",
 		},
-		MaxChapterCount: 1,
-		StatusWriter:    os.Stderr,
+		MaxSceneCount: 5,
+		StatusWriter:  os.Stderr,
 	}
 
 	generator, err := scripter.NewGenerator(config)

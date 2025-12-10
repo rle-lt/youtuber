@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strings"
 
 	"github.com/joho/godotenv"
 	defaults "github.com/rle-lt/youtuber/scripter/cmd/default"
@@ -56,5 +57,5 @@ func main() {
 	}
 
 	// Output the final story
-	fmt.Fprintf(os.Stdout, "%s\n", prompts)
+	fmt.Fprintf(os.Stdout, "%s\n", strings.Join(prompts, "\n"))
 }

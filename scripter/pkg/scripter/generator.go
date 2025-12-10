@@ -19,10 +19,10 @@ type Models struct {
 }
 
 type Config struct {
-	APIKey          string
-	Models          Models
-	MaxChapterCount uint
-	StatusWriter    io.Writer
+	APIKey        string
+	Models        Models
+	MaxSceneCount uint
+	StatusWriter  io.Writer
 }
 
 type Generator struct {
@@ -61,8 +61,9 @@ func NewGenerator(config Config) (*Generator, error) {
 
 	return g, nil
 }
-func (g *Generator) GeneratePrompts(idea string, usedPrompts []string, targetAudienceCharacteristics []string, resultExamples []string, promptCount uint) (string, error) {
-	examplesStr := strings.Join(resultExamples, "\n\n")
+
+func (g *Generator) GeneratePrompts(idea string, usedPrompts []string, targetAudienceCharacteristics []string, resultExamples []string, promptCount uint) ([]string, error) {
+	examplesStr := strings.Join(resultExamples, "\n")
 	usedPromptsStr := ""
 	audienceStr := ""
 	for _, char := range targetAudienceCharacteristics {
@@ -70,7 +71,6 @@ func (g *Generator) GeneratePrompts(idea string, usedPrompts []string, targetAud
 	}
 	for _, used := range usedPrompts {
 		usedPromptsStr += fmt.Sprintf("- %s\n", used)
-
 	}
 
 	prompt := fmt.Sprintf(prompts.PROMPT_GENERATION_PROMPT,
@@ -83,7 +83,7 @@ func (g *Generator) GeneratePrompts(idea string, usedPrompts []string, targetAud
 	modelInfo, err := GetModelAndProvider(g.config.Models.Prompt)
 
 	if err != nil {
-		return "", err
+		return []string{}, err
 	}
 
 	messages := RequestMessages{
@@ -95,25 +95,38 @@ func (g *Generator) GeneratePrompts(idea string, usedPrompts []string, targetAud
 
 	messages, err = g.generateText(messages, modelInfo.Model)
 	if err != nil {
-		return "", err
+		return []string{}, err
 	}
 
 	generatedPrompts := messages.GetLastMessage()
 
-	return generatedPrompts, nil
+	prompt = fmt.Sprintf(prompts.PROMPT_GENERATION_TO_JSON_PROMPT, generatedPrompts)
 
+	messages = RequestMessages{BuildMessage(prompt)}
+
+	messages, err = g.generateText(messages, modelInfo.Model)
+	if err != nil {
+		return []string{}, err
+	}
+
+	var parsedPrompts struct {
+		Prompts []string `json:"prompts"`
+	}
+	err = json.Unmarshal([]byte(messages.GetLastMessage()), &parsedPrompts)
+	if err != nil {
+		return []string{}, err
+	}
+	return parsedPrompts.Prompts, nil
 }
 
 func (g *Generator) GenerateStory(prompt string) ([]string, error) {
-	// Generate initial outline
 	g.logStatus("Generating story outline...")
-	storyOutline, storyElements, chapterOutline, importantInfo, err := g.GenerateInitOutline(prompt)
+	storyOutline, storyElements, sceneOutline, importantInfo, err := g.GenerateInitOutline(prompt)
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate initial outline: %w", err)
 	}
 	g.logStatus("Finished story outline")
 
-	// Review outline
 	g.logStatus("Reviewing story outline...")
 	storyOutline, err = g.ReviewOutline(storyOutline)
 	if err != nil {
@@ -121,48 +134,43 @@ func (g *Generator) GenerateStory(prompt string) ([]string, error) {
 	}
 	g.logStatus("Reviewed story outline")
 
-	// Count chapters
-	chapterCount, err := g.CountChapters(chapterOutline)
+	sceneCount, err := g.CountScenes(sceneOutline)
 	if err != nil {
-		return nil, fmt.Errorf("failed to count chapters: %w", err)
+		return nil, fmt.Errorf("failed to count scenes: %w", err)
 	}
-	g.logStatus(fmt.Sprintf("Chapter count is %d", chapterCount))
+	g.logStatus(fmt.Sprintf("Scene count is %d", sceneCount))
 
-	// Generate chapter outlines
-	g.logStatus("Generating chapter outlines...")
-	chapterOutlines, err := g.GenerateChapterOutlines(storyOutline, chapterCount)
+	g.logStatus("Generating scene outlines...")
+	sceneOutlines, err := g.GenerateSceneOutlines(storyOutline, sceneCount)
 	if err != nil {
-		return nil, fmt.Errorf("failed to generate chapter outlines: %w", err)
+		return nil, fmt.Errorf("failed to generate scene outlines: %w", err)
 	}
-	g.logStatus("Finished chapter outlines")
+	g.logStatus("Finished scene outlines")
 
-	// Generate chapters
-	g.logStatus("Generating chapters...")
-	chapters, err := g.GenerateChapters(chapterOutlines, chapterCount, storyOutline, importantInfo)
+	g.logStatus("Generating scenes...")
+	scenes, err := g.GenerateScenes(sceneOutlines, sceneCount, storyOutline, importantInfo)
 	if err != nil {
-		return nil, fmt.Errorf("failed to generate chapters: %w", err)
+		return nil, fmt.Errorf("failed to generate scenes: %w", err)
 	}
-	g.logStatus("Finished chapters")
+	g.logStatus("Finished scenes")
 
-	// Review chapters
-	g.logStatus("Reviewing chapters...")
-	chapters, err = g.ReviewChapters(chapters)
+	g.logStatus("Reviewing scenes...")
+	scenes, err = g.ReviewScenes(scenes)
 	if err != nil {
-		return nil, fmt.Errorf("failed to review chapters: %w", err)
+		return nil, fmt.Errorf("failed to review scenes: %w", err)
 	}
-	g.logStatus("Reviewed chapters")
+	g.logStatus("Reviewed scenes")
 
-	// Scrub chapters
-	g.logStatus("Scrubbing chapters...")
-	chapters, err = g.ScrubChapters(chapters)
+	g.logStatus("Scrubbing scenes...")
+	scenes, err = g.ScrubScenes(scenes)
 	if err != nil {
-		return nil, fmt.Errorf("failed to scrub chapters: %w", err)
+		return nil, fmt.Errorf("failed to scrub scenes: %w", err)
 	}
-	g.logStatus("Scrubbed chapters")
+	g.logStatus("Scrubbed scenes")
 
 	_ = storyElements
 
-	return chapters, nil
+	return scenes, nil
 }
 
 func (g *Generator) GenerateInitOutline(outlinePrompt string) (string, string, string, string, error) {
@@ -187,7 +195,7 @@ func (g *Generator) GenerateInitOutline(outlinePrompt string) (string, string, s
 	}
 	storyElements := messages.GetLastMessage()
 
-	prompt = fmt.Sprintf(prompts.INITIAL_OUTLINE_PROMPT, outlinePrompt, storyElements, g.config.MaxChapterCount)
+	prompt = fmt.Sprintf(prompts.INITIAL_OUTLINE_PROMPT, outlinePrompt, storyElements, g.config.MaxSceneCount)
 	messages = RequestMessages{BuildMessage(prompt)}
 	messages, err = g.generateText(messages, modelInfo.Model)
 	if err != nil {
@@ -199,8 +207,8 @@ func (g *Generator) GenerateInitOutline(outlinePrompt string) (string, string, s
 	return fullOutline, storyElements, initialOutline, importantInfo, nil
 }
 
-func (g *Generator) CountChapters(chapterOutline string) (uint, error) {
-	prompt := fmt.Sprintf(prompts.CHAPTER_COUNT_PROMPT, chapterOutline)
+func (g *Generator) CountScenes(sceneOutline string) (uint, error) {
+	prompt := fmt.Sprintf(prompts.SCENE_COUNT_PROMPT, sceneOutline)
 	modelInfo, err := GetModelAndProvider(g.config.Models.ChapterOutline)
 	if err != nil {
 		return 0, err
@@ -219,128 +227,123 @@ func (g *Generator) CountChapters(chapterOutline string) (uint, error) {
 
 	err = json.Unmarshal([]byte(output), &data)
 	if err != nil {
-		return 0, fmt.Errorf("unable to unmarshal chapter count: %w", err)
+		return 0, fmt.Errorf("unable to unmarshal scene count: %w", err)
 	}
 
 	return uint(data.TotalChapters), nil
 }
 
-func (g *Generator) GenerateChapterOutlines(outline string, outlineCount uint) ([]string, error) {
+func (g *Generator) GenerateSceneOutlines(outline string, outlineCount uint) ([]string, error) {
 	modelInfo, err := GetModelAndProvider(g.config.Models.ChapterOutline)
 	if err != nil {
 		return nil, err
 	}
 
-	prompt := fmt.Sprintf("Please help me expand upon the following outline, chapter by chapter.\n%s", outline)
+	prompt := fmt.Sprintf("Please help me expand upon the following outline, scene by scene.\n%s", outline)
 	messages := RequestMessages{BuildMessage(prompt)}
-	chapterOutlines := make([]string, 0, outlineCount)
+	sceneOutlines := make([]string, 0, outlineCount)
 
 	for i := range outlineCount {
-		chapterNum := i + 1
-		prompt := fmt.Sprintf(prompts.CHAPTER_OUTLINE_PROMPT, chapterNum, outline, chapterNum)
+		sceneNum := i + 1
+		prompt := fmt.Sprintf(prompts.SCENE_OUTLINE_PROMPT, sceneNum, outline, sceneNum)
 		messages = append(messages, BuildMessage(prompt))
 
 		messages, err = g.generateText(messages, modelInfo.Model)
 		if err != nil {
-			return nil, fmt.Errorf("failed to generate chapter %d outline: %w", chapterNum, err)
+			return nil, fmt.Errorf("failed to generate scene %d outline: %w", sceneNum, err)
 		}
 
-		chapterOutlines = append(chapterOutlines, messages.GetLastMessage())
+		sceneOutlines = append(sceneOutlines, messages.GetLastMessage())
 	}
 
-	return chapterOutlines, nil
+	return sceneOutlines, nil
 }
 
-func (g *Generator) GenerateChapters(chapterOutlines []string, chapterCount uint, storyOutline string, importantInfo string) ([]string, error) {
-	chapters := make([]string, 0, chapterCount)
+func (g *Generator) GenerateScenes(sceneOutlines []string, sceneCount uint, storyOutline string, importantInfo string) ([]string, error) {
+	scenes := make([]string, 0, sceneCount)
 	modelInfo, err := GetModelAndProvider(g.config.Models.ChapterWriter)
 	if err != nil {
 		return nil, err
 	}
 
-	for i := range chapterCount {
-		chapterNum := i + 1
-		currentChapterOutline := chapterOutlines[i]
+	for i := range sceneCount {
+		sceneNum := i + 1
+		currentSceneOutline := sceneOutlines[i]
 
-		// Build previous chapters context
-		previousChapters := ""
+		previousScenes := ""
 		for j := range i {
-			previousChapters += chapters[j] + "\n"
+			previousScenes += scenes[j] + "\n"
 		}
 
-		// Generate summary of last chapter
-		lastChapterSummary := ""
+		lastSceneSummary := ""
 		if i > 0 {
-			prompt := fmt.Sprintf(prompts.CHAPTER_SUMMARY_PROMPT, chapterNum, storyOutline, chapters[i-1])
+			prompt := fmt.Sprintf(prompts.SCENE_SUMMARY_PROMPT, sceneNum, storyOutline, scenes[i-1])
 			messages := RequestMessages{
-				{Role: "system", Content: prompts.CHAPTER_SUMMARY_INTRO},
+				{Role: "system", Content: prompts.SCENE_SUMMARY_INTRO},
 				BuildMessage(prompt),
 			}
 
 			messages, err = g.generateText(messages, modelInfo.Model)
 			if err != nil {
-				return nil, fmt.Errorf("failed to generate chapter %d summary: %w", chapterNum, err)
+				return nil, fmt.Errorf("failed to generate scene %d summary: %w", sceneNum, err)
 			}
-			lastChapterSummary = messages.GetLastMessage()
+			lastSceneSummary = messages.GetLastMessage()
 		}
 
-		previousChaptersContext := ""
-		if previousChapters != "" {
-			previousChaptersContext = fmt.Sprintf("Previous chapters context:\n%s", previousChapters)
+		previousScenesContext := ""
+		if previousScenes != "" {
+			previousScenesContext = fmt.Sprintf("Previous scenes context:\n%s", previousScenes)
 		}
 
-		// Stage 1: Generate Initial Plot
-		prompt := fmt.Sprintf(prompts.CHAPTER_GENERATION_STAGE1,
-			previousChaptersContext, importantInfo, chapterNum, chapterCount,
-			currentChapterOutline, lastChapterSummary, chapterNum)
+		prompt := fmt.Sprintf(prompts.SCENE_GENERATION_STAGE1,
+			previousScenesContext, importantInfo, sceneNum, sceneCount,
+			currentSceneOutline, lastSceneSummary, sceneNum)
 
 		messages := RequestMessages{
-			{Role: "system", Content: fmt.Sprintf(prompts.CHAPTER_GENERATION_INTRO, storyOutline)},
+			{Role: "system", Content: fmt.Sprintf(prompts.SCENE_GENERATION_INTRO, storyOutline)},
 			BuildMessage(prompt),
 		}
 
 		messages, err = g.generateText(messages, modelInfo.Model)
 		if err != nil {
-			return nil, fmt.Errorf("failed to generate chapter %d stage 1: %w", chapterNum, err)
+			return nil, fmt.Errorf("failed to generate scene %d stage 1: %w", sceneNum, err)
 		}
-		firstChapterStage := messages.GetLastMessage()
+		firstSceneStage := messages.GetLastMessage()
 
-		// Stage 2: Add Character Development
-		prompt = fmt.Sprintf(prompts.CHAPTER_GENERATION_STAGE2,
-			previousChaptersContext, importantInfo, chapterNum, chapterCount,
-			currentChapterOutline, lastChapterSummary, firstChapterStage, chapterNum)
+		prompt = fmt.Sprintf(prompts.SCENE_GENERATION_STAGE2,
+			previousScenesContext, importantInfo, sceneNum, sceneCount,
+			currentSceneOutline, lastSceneSummary, firstSceneStage, sceneNum)
 
 		messages = RequestMessages{
-			{Role: "system", Content: fmt.Sprintf(prompts.CHAPTER_GENERATION_INTRO, storyOutline)},
+			{Role: "system", Content: fmt.Sprintf(prompts.SCENE_GENERATION_INTRO, storyOutline)},
 			BuildMessage(prompt),
 		}
 
 		messages, err = g.generateText(messages, modelInfo.Model)
 		if err != nil {
-			return nil, fmt.Errorf("failed to generate chapter %d stage 2: %w", chapterNum, err)
+			return nil, fmt.Errorf("failed to generate scene %d stage 2: %w", sceneNum, err)
 		}
-		secondChapterStage := messages.GetLastMessage()
+		secondSceneStage := messages.GetLastMessage()
 
-		// Stage 3: Add Dialogue
-		prompt = fmt.Sprintf(prompts.CHAPTER_GENERATION_STAGE3,
-			previousChaptersContext, importantInfo, chapterNum, chapterCount,
-			lastChapterSummary, secondChapterStage, chapterNum)
+		prompt = fmt.Sprintf(prompts.SCENE_GENERATION_STAGE3,
+			previousScenesContext, importantInfo, sceneNum, sceneCount,
+			lastSceneSummary, secondSceneStage, sceneNum)
 
 		messages = RequestMessages{
-			{Role: "system", Content: fmt.Sprintf(prompts.CHAPTER_GENERATION_INTRO, storyOutline)},
+			{Role: "system", Content: fmt.Sprintf(prompts.SCENE_GENERATION_INTRO, storyOutline)},
 			BuildMessage(prompt),
 		}
 
 		messages, err = g.generateText(messages, modelInfo.Model)
 		if err != nil {
-			return nil, fmt.Errorf("failed to generate chapter %d stage 3: %w", chapterNum, err)
+			return nil, fmt.Errorf("failed to generate scene %d stage 3: %w", sceneNum, err)
 		}
-		thirdChapterStage := messages.GetLastMessage()
+		thirdSceneStage := messages.GetLastMessage()
 
-		chapters = append(chapters, thirdChapterStage)
+		scenes = append(scenes, thirdSceneStage)
 	}
 
-	return chapters, nil
+	return scenes, nil
 }
 
 func (g *Generator) ReviewOutline(storyOutline string) (string, error) {
@@ -372,64 +375,63 @@ func (g *Generator) ReviewOutline(storyOutline string) (string, error) {
 	return messages.GetLastMessage(), nil
 }
 
-func (g *Generator) ReviewChapters(chapters []string) ([]string, error) {
+func (g *Generator) ReviewScenes(scenes []string) ([]string, error) {
 	modelInfo, err := GetModelAndProvider(g.config.Models.Revision)
 	if err != nil {
 		return nil, err
 	}
 
-	reviewedChapters := make([]string, 0, len(chapters))
-	for i, chapter := range chapters {
-		prompt := fmt.Sprintf(prompts.CRITIC_CHAPTER_PROMPT, chapter)
+	reviewedScenes := make([]string, 0, len(scenes))
+	for i, scene := range scenes {
+		prompt := fmt.Sprintf(prompts.CRITIC_SCENE_PROMPT, scene)
 		messages := RequestMessages{
-			{Role: "system", Content: prompts.CRITIC_CHAPTER_INTRO},
+			{Role: "system", Content: prompts.CRITIC_SCENE_INTRO},
 			BuildMessage(prompt),
 		}
 
 		messages, err = g.generateText(messages, modelInfo.Model)
 		if err != nil {
-			return nil, fmt.Errorf("failed to get feedback for chapter %d: %w", i+1, err)
+			return nil, fmt.Errorf("failed to get feedback for scene %d: %w", i+1, err)
 		}
 		feedback := messages.GetLastMessage()
 
-		prompt = fmt.Sprintf(prompts.CHAPTER_REVISION_PROMPT, chapter, feedback)
+		prompt = fmt.Sprintf(prompts.SCENE_REVISION_PROMPT, scene, feedback)
 		messages = RequestMessages{BuildMessage(prompt)}
 
 		messages, err = g.generateText(messages, modelInfo.Model)
 		if err != nil {
-			return nil, fmt.Errorf("failed to revise chapter %d: %w", i+1, err)
+			return nil, fmt.Errorf("failed to revise scene %d: %w", i+1, err)
 		}
 
-		reviewedChapters = append(reviewedChapters, messages.GetLastMessage())
+		reviewedScenes = append(reviewedScenes, messages.GetLastMessage())
 	}
 
-	return reviewedChapters, nil
+	return reviewedScenes, nil
 }
 
-func (g *Generator) ScrubChapters(chapters []string) ([]string, error) {
+func (g *Generator) ScrubScenes(scenes []string) ([]string, error) {
 	modelInfo, err := GetModelAndProvider(g.config.Models.Scrub)
 	if err != nil {
 		return nil, err
 	}
 
-	scrubbedChapters := make([]string, 0, len(chapters))
-	for i, chapter := range chapters {
-		prompt := fmt.Sprintf(prompts.SCRUB_PROMPT, chapter)
+	scrubbedScenes := make([]string, 0, len(scenes))
+	for i, scene := range scenes {
+		prompt := fmt.Sprintf(prompts.SCRUB_PROMPT, scene)
 		messages := RequestMessages{BuildMessage(prompt)}
 
 		messages, err = g.generateText(messages, modelInfo.Model)
 		if err != nil {
-			return nil, fmt.Errorf("failed to scrub chapter %d: %w", i+1, err)
+			return nil, fmt.Errorf("failed to scrub scene %d: %w", i+1, err)
 		}
 
-		scrubbedChapters = append(scrubbedChapters, messages.GetLastMessage())
+		scrubbedScenes = append(scrubbedScenes, messages.GetLastMessage())
 	}
 
-	return scrubbedChapters, nil
+	return scrubbedScenes, nil
 }
 
 func (g *Generator) generateText(messages RequestMessages, model string) (RequestMessages, error) {
-
 	client, ok := g.clients[model]
 	if !ok {
 		return nil, fmt.Errorf("no client configured for model: %s", model)

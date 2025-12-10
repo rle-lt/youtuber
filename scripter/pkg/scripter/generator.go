@@ -1,12 +1,10 @@
 package scripter
 
 import (
-	"archive/tar"
 	"encoding/json"
 	"fmt"
 	"io"
 	"strings"
-	"text/template"
 
 	prompts "github.com/rle-lt/youtuber/scripter/pkg/prompt"
 )

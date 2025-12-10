@@ -2,23 +2,18 @@ package runner
 
 import (
 	"encoding/json"
+	"fmt"
 	"log"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/rle-lt/youtuber/scripter/pkg/scripter"
 )
 
-type Tempalte struct {
-	Idea                          string
-	TargetAudienceCharacteristics []string
-	ExamplePrompts                []string
-	TitleStructureVariations      []string
-}
-
 func GenerateHFY(pathToTemplate string) {
 
-	path := filepath.Join(pathToTemplate, "assets/hfy/template.json")
+	path := filepath.Join(pathToTemplate, "template.json")
 
 	data, err := os.ReadFile(path)
 	if err != nil {
@@ -26,7 +21,7 @@ func GenerateHFY(pathToTemplate string) {
 		return
 	}
 
-	var template Tempalte
+	var template scripter.PromptGenerationTemplate
 
 	json.Unmarshal(data, &template)
 
@@ -40,15 +35,19 @@ func GenerateHFY(pathToTemplate string) {
 			Scrub:          "openrouter://amazon/nova-2-lite-v1:free",
 			Prompt:         "openrouter://amazon/nova-2-lite-v1:free",
 		},
-		MaxChapterCount: 6,
-		OutputWriter:    os.Stdout,
-		StatusWriter:    os.Stderr,
+		MaxSceneCount: 6,
+		StatusWriter:  os.Stderr,
 	}
 
 	generator, err := scripter.NewGenerator(config)
 	if err != nil {
 		log.Fatal(err)
 	}
-	generator.GeneratePrompts()
+	prompts, err := generator.GeneratePrompts(template, 5)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	fmt.Printf("The prompts:\n %s", strings.Join(prompts, "\n"))
 
 }

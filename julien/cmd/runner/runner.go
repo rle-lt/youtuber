@@ -5,7 +5,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/rle-lt/youtuber/runner/pkg/runner"
+	"github.com/rle-lt/youtuber/julien/pkg/hfy"
 )
 
 func main() {
@@ -17,6 +17,6 @@ func main() {
 
 	pathToFile = filepath.Join(pathToFile, "assets/hfy")
 
-	runner.GenerateHFY(pathToFile)
+	hfy.GenerateHFY(pathToFile)
 
 }

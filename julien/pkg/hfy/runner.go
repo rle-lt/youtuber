@@ -1,4 +1,4 @@
-package runner
+package hfy
 
 import (
 	"encoding/json"
@@ -8,7 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/rle-lt/youtuber/scripter/pkg/scripter"
+	"github.com/rle-lt/youtuber/julien/pkg/generation"
 )
 
 func GenerateHFY(pathToTemplate string) {
@@ -21,13 +21,13 @@ func GenerateHFY(pathToTemplate string) {
 		return
 	}
 
-	var template scripter.PromptGenerationTemplate
+	var template generation.PromptGenerationTemplate
 
 	json.Unmarshal(data, &template)
 
-	config := scripter.Config{
+	config := generation.Config{
 		APIKey: os.Getenv("OPENROUTER_API_KEY"),
-		Models: scripter.Models{
+		Models: generation.Models{
 			InitialOutline: "openrouter://amazon/nova-2-lite-v1:free",
 			ChapterOutline: "openrouter://amazon/nova-2-lite-v1:free",
 			ChapterWriter:  "openrouter://amazon/nova-2-lite-v1:free",
@@ -39,7 +39,7 @@ func GenerateHFY(pathToTemplate string) {
 		StatusWriter:  os.Stderr,
 	}
 
-	generator, err := scripter.NewGenerator(config)
+	generator, err := generation.NewGenerator(config)
 	if err != nil {
 		log.Fatal(err)
 	}

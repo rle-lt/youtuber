@@ -6,7 +6,7 @@ import (
 	"io"
 	"strings"
 
-	prompts "github.com/rle-lt/youtuber/scripter/pkg/prompt"
+	prompts "github.com/rle-lt/youtuber/julien/pkg/prompt"
 )
 
 type Models struct {

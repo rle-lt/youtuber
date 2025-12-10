@@ -8,8 +8,6 @@ import (
 	"strings"
 
 	"github.com/joho/godotenv"
-	defaults "github.com/rle-lt/youtuber/scripter/cmd/default"
-	"github.com/rle-lt/youtuber/scripter/pkg/scripter"
 )
 
 func main() {

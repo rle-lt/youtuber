@@ -465,13 +465,51 @@ Output only the clean narration text ready for voiceover recording.`
 
 const PROMPT_GENERATION_INTRO = `You are an expert at creating compelling story premises for dramatic video content. Your prompts should generate stories that hook viewers immediately and keep them engaged.`
 
-const PROMPT_GENERATION_PROMPT = `Generate %d compelling story prompts for dramatic video narratives.
+const VIDEO_OUTLINE_GENERATION_PROMPT = `Generate %d compelling video outlines for dramatic narratives.
 
 <CORE_THEME>
 %s
 </CORE_THEME>
 
-Each prompt should create a story with:
+<TARGET_AUDIENCE>
+%s
+</TARGET_AUDIENCE>
+
+For each outline, generate:
+
+**TITLE**: A compelling hook that makes viewers want to watch immediately
+- Follow the proven structure patterns below
+- Use specific numbers for credibility when relevant
+- Keep it clear and instantly understandable
+- Make every word count
+
+**OUTLINE**: A rough story structure with:
+
+1. **SETUP (Opening)**
+   - Establish the protagonist and their world
+   - Introduce the central conflict or mystery
+   - Create the hook that pulls viewers in
+	 - First 10 seconds should really hook the person in
+
+2. **RISING ACTION (Development)**
+   - Escalate the conflict with complications
+   - Show protagonist facing obstacles and making choices
+   - Reveal information that deepens the stakes
+   - Build tension steadily
+
+3. **CLIMAX (Peak Tension)**
+   - Protagonist faces the ultimate challenge
+   - All story threads converge
+   - Highest emotional stakes
+   - The moment everything changes
+
+4. **RESOLUTION (Payoff)**
+   - Resolve the central conflict
+   - Show consequences of protagonist's choices
+   - Deliver emotional satisfaction
+   - Land the theme naturally
+
+Each outline should create a story with:
 
 **1. Immediate Hook**
 - Starts with intrigue, conflict, or impossible situation
@@ -498,9 +536,10 @@ Each prompt should create a story with:
 - Theme emerges naturally
 - Satisfying resolution possible
 
-**6. Sustainable Runtime**
-- Enough narrative depth to fill time without padding
-- Natural story beats maintain engagement throughout
+**6. Sustainable Narrative**
+- Enough depth for full development
+- Natural story beats maintain engagement
+- Each act has clear purpose
 
 Story types to consider:
 - Thrillers (mystery, revelation, pursuit)
@@ -514,28 +553,42 @@ Story types to consider:
 - Transformation (forced change, growth through crisis)
 - Underdog challenges (unlikely heroes, David vs. Goliath)
 
-Title structure patterns to use:
+<TITLE_STRUCTURE_PATTERNS>
+Use these proven formats for maximum engagement:
 %s
+</TITLE_STRUCTURE_PATTERNS>
 
-Example effective prompts:
+<EXAMPLE_TITLES>
+Study these for clarity and structure (DO NOT copy the concepts):
 %s
+</EXAMPLE_TITLES>
 
-DO NOT REUSE these previously used concepts:
+<FORBIDDEN_TITLE_CONCEPTS>
+DO NOT reuse these previously used title concepts:
 %s
+</FORBIDDEN_TITLE_CONCEPTS>
 
-Target audience characteristics:
-%s
+Generate outlines that create stories viewers cannot stop watching.
 
-Generate prompts that create stories viewers cannot stop watching.
-Format as a numbered list (1., 2., 3., etc.).`
+Format each outline as:
+1. TITLE: [Your compelling title]
+   OUTLINE:
+   - Setup: [2-3 sentences describing the opening]
+   - Rising Action: [2-3 sentences on escalation]
+   - Climax: [1-2 sentences on peak moment]
+   - Resolution: [1-2 sentences on payoff]
 
-const PROMPT_GENERATION_TO_JSON_PROMPT = `Return the prompts as a JSON array of strings.
+2. TITLE: [Next title]
+   OUTLINE:
+   ...`
 
-Your response must be valid JSON only, with no markdown formatting, no code blocks, and no comments.
+const PROMPT_GENERATION_TO_JSON_PROMPT = `return the prompts as a json object.
 
-Remove the list numbers from the prompts.
+your response must be strictly valid json only, with no markdown whatsoever formatting, no code blocks, and no comments.
 
-Format needed: {"prompts":["prompt 1", "prompt 2", "prompt 3"]}
+remove the list numbers from the prompts.
 
-Prompts to format:
+format needed: {"prompts": [{"title" : "",outline : ""},{...}]}
+
+prompts to format:
 %s`

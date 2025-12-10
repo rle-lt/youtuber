@@ -35,6 +35,10 @@ type PromptGenerationTemplate struct {
 	ExamplePrompts                []string
 	TitleStructureVariations      []string
 }
+type Prompt struct {
+	Title   string
+	Outline string
+}
 
 func NewGenerator(config Config) (*Generator, error) {
 	g := &Generator{
@@ -68,7 +72,7 @@ func NewGenerator(config Config) (*Generator, error) {
 	return g, nil
 }
 
-func (g *Generator) GeneratePrompts(template PromptGenerationTemplate, promptCount uint) ([]string, error) {
+func (g *Generator) GeneratePrompts(template PromptGenerationTemplate, promptCount uint) ([]Prompt, error) {
 	examplesStr := strings.Join(template.ExamplePrompts, "\n")
 	usedPromptsStr := ""
 	audienceStr := ""
@@ -76,14 +80,11 @@ func (g *Generator) GeneratePrompts(template PromptGenerationTemplate, promptCou
 	for _, char := range template.TargetAudienceCharacteristics {
 		audienceStr += fmt.Sprintf("- %s\n", char)
 	}
-	for _, used := range "" {
-		usedPromptsStr += fmt.Sprintf("- %s\n", used)
-	}
 	for _, title := range template.TitleStructureVariations {
 		usedPromptsStr += fmt.Sprintf("- %s\n", title)
 	}
 
-	prompt := fmt.Sprintf(prompts.PROMPT_GENERATION_PROMPT,
+	prompt := fmt.Sprintf(prompts.VIDEO_OUTLINE_GENERATION_PROMPT,
 		promptCount,
 		template.Idea,
 		titleStructureStr,
@@ -94,7 +95,7 @@ func (g *Generator) GeneratePrompts(template PromptGenerationTemplate, promptCou
 	modelInfo, err := GetModelAndProvider(g.config.Models.Prompt)
 
 	if err != nil {
-		return []string{}, err
+		return []Prompt{}, err
 	}
 
 	messages := RequestMessages{
@@ -106,7 +107,7 @@ func (g *Generator) GeneratePrompts(template PromptGenerationTemplate, promptCou
 
 	messages, err = g.generateText(messages, modelInfo.Model)
 	if err != nil {
-		return []string{}, err
+		return []Prompt{}, err
 	}
 
 	generatedPrompts := messages.GetLastMessage()
@@ -117,17 +118,17 @@ func (g *Generator) GeneratePrompts(template PromptGenerationTemplate, promptCou
 
 	messages, err = g.generateText(messages, modelInfo.Model)
 	if err != nil {
-		return []string{}, err
+		return []Prompt{}, err
+	}
+	var parsedJson struct {
+		Prompts []Prompt `json:"prompts"`
 	}
 
-	var parsedPrompts struct {
-		Prompts []string `json:"prompts"`
-	}
-	err = json.Unmarshal([]byte(messages.GetLastMessage()), &parsedPrompts)
+	err = json.Unmarshal([]byte(messages.GetLastMessage()), &parsedJson)
 	if err != nil {
-		return []string{}, err
+		return []Prompt{}, err
 	}
-	return parsedPrompts.Prompts, nil
+	return parsedJson.Prompts, nil
 }
 
 func (g *Generator) GenerateStory(prompt string) ([]string, error) {

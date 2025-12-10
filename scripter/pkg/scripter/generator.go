@@ -1,10 +1,12 @@
 package scripter
 
 import (
+	"archive/tar"
 	"encoding/json"
 	"fmt"
 	"io"
 	"strings"
+	"text/template"
 
 	prompts "github.com/rle-lt/youtuber/scripter/pkg/prompt"
 )
@@ -68,24 +70,24 @@ func NewGenerator(config Config) (*Generator, error) {
 	return g, nil
 }
 
-func (g *Generator) GeneratePrompts(idea string, titleStructure []string, usedPrompts []string, targetAudienceCharacteristics []string, resultExamples []string, promptCount uint) ([]string, error) {
-	examplesStr := strings.Join(resultExamples, "\n")
+func (g *Generator) GeneratePrompts(template PromptGenerationTemplate, promptCount uint) ([]string, error) {
+	examplesStr := strings.Join(template.ExamplePrompts, "\n")
 	usedPromptsStr := ""
 	audienceStr := ""
 	titleStructureStr := ""
-	for _, char := range targetAudienceCharacteristics {
+	for _, char := range template.TargetAudienceCharacteristics {
 		audienceStr += fmt.Sprintf("- %s\n", char)
 	}
-	for _, used := range usedPrompts {
+	for _, used := range "" {
 		usedPromptsStr += fmt.Sprintf("- %s\n", used)
 	}
-	for _, title := range titleStructure {
+	for _, title := range template.TitleStructureVariations {
 		usedPromptsStr += fmt.Sprintf("- %s\n", title)
 	}
 
 	prompt := fmt.Sprintf(prompts.PROMPT_GENERATION_PROMPT,
 		promptCount,
-		idea,
+		template.Idea,
 		titleStructureStr,
 		examplesStr,
 		usedPromptsStr,
